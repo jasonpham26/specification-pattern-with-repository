@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyCookingMaster.BL.Models;
+using MyCookingMaster.BL.Specifications;
 using MyCookingMaster.DAL;
 
 namespace MyCookingMaster.API.Controllers
@@ -14,24 +15,25 @@ namespace MyCookingMaster.API.Controllers
     [ApiController]
     public class UsersController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public UsersController(ApplicationDbContext context)
+        public UsersController(IUnitOfWork unitOfWork)
         {
-            _context = context;
+            _unitOfWork = unitOfWork;
         }
-
+        
+        // GET: api/Users
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<User>>> GetUsers()
+        public ActionResult<IEnumerable<User>> GetUsers()
         {
-            return await _context.Users.Include(x => x.Recipes).ThenInclude(x => x.Ingredients).ToListAsync();
+            return _unitOfWork.Repository<User>().Find(new UsersWithRecipesAndIngredientsSpecification()).ToList();
         }
 
         // GET: api/Users/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<User>> GetUser(int id)
+        public ActionResult<User> GetUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = _unitOfWork.Repository<User>().Find(new UsersWithRecipesAndIngredientsSpecification(id)).SingleOrDefault();
 
             if (user == null)
             {
@@ -41,24 +43,24 @@ namespace MyCookingMaster.API.Controllers
             return user;
         }
 
-        // PUT: api/Users/5
+        //// PUT: api/Users/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutUser(int id, User user)
+        public IActionResult PutUser(int id, User user)
         {
             if (id != user.Id)
             {
                 return BadRequest();
             }
 
-            _context.Entry(user).State = EntityState.Modified;
+            _unitOfWork.Repository<User>().Update(user);
 
             try
             {
-                await _context.SaveChangesAsync();
+                _unitOfWork.Complete();
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!UserExists(id))
+                if (!_unitOfWork.Repository<User>().Contains(x => x.Id == id))
                 {
                     return NotFound();
                 }
@@ -73,34 +75,28 @@ namespace MyCookingMaster.API.Controllers
 
         // POST: api/Users
         [HttpPost]
-        public async Task<ActionResult<User>> PostUser(User user)
+        public ActionResult<User> PostUser(User user)
         {
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            _unitOfWork.Repository<User>().Add(user);
+            _unitOfWork.Complete();
 
             return CreatedAtAction("GetUser", new { id = user.Id }, user);
         }
 
         // DELETE: api/Users/5
         [HttpDelete("{id}")]
-        public async Task<ActionResult<User>> DeleteUser(int id)
+        public ActionResult<User> DeleteUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = _unitOfWork.Repository<User>().FindById(id);
             if (user == null)
             {
                 return NotFound();
             }
 
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
+            _unitOfWork.Repository<User>().Remove(user);
+            _unitOfWork.Complete();
 
             return user;
         }
-
-        private bool UserExists(int id)
-        {
-            return _context.Users.Any(e => e.Id == id);
-        }
-
     }
 }

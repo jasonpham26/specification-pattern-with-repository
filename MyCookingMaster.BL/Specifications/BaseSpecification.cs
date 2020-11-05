@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Text;
 
-namespace MyCookingMaster.DAL
+namespace MyCookingMaster.BL.Specifications
 {
     public abstract class BaseSpecification<T> : ISpecification<T>
     {
